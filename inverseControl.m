@@ -1,5 +1,5 @@
-%plantIdentification: prediksi y, hanya berdasarkan x, x-1, dan x-2. akan terbuat y-1 dan y-2
-%                     y = f(x, x-1, x-2)
+%inverseControl: prediksi x, hanya berdasarkan y, y-1, dan y-2. akan terbuat x-1 dan x-2
+%                     x = f(y, y-1, y-2)
 clear, clc;
 
 %% //////////// Mempersiapkan Data ////////////
@@ -34,26 +34,26 @@ dataName = "data_random";
 % ===== split data equally to train/validate/test
 split_size = size(data, 1) * 1/3;
 
-x_train = data(1:split_size , 1:5);  % | x | x-1 | y-1 | x-2 | y-2 |
-y_train = data(1:split_size , 6);  % | y |
+x_train = data(1:split_size , 2:6);  % | x-1 | y-1 | x-2 | y-2 | y |
+y_train = data(1:split_size , 1);  % | x |
 
-x_val = data(split_size+1:2*split_size, 1:5);
-y_val = data(split_size+1:2*split_size, 6);
+x_val = data(split_size+1:2*split_size, 2:6);
+y_val = data(split_size+1:2*split_size, 1);
 
-x_test = data(2*split_size+1:3*split_size, 1:5);
-y_test = data(2*split_size+1:3*split_size, 6);
+x_test = data(2*split_size+1:3*split_size, 2:6);
+y_test = data(2*split_size+1:3*split_size, 1);
 
-preparedDataFileName = "prep_plantId_" + dataName + ".mat";
+preparedDataFileName = "prep_invCtrl_" + dataName + ".mat";
 save(preparedDataFileName, "x_train", "y_train", "x_val", "y_val", "x_test", "y_test")
 % /////////////////////////////////////////////
 
 
 
 %% ///////////////// TAHAP 1 //////////////////
-% (output = y; input = x, x-1, y-1, x-2, y-2)
+% (output = x; input = y, y-1, x-1, y-2, x-2)
 
 % dataName = "data_random";  % "data_random" / "data_sin" / "data_step"
-preparedDataFileName = "prep_plantId_" + dataName + ".mat";
+preparedDataFileName = "prep_invCtrl_" + dataName + ".mat";
 load(preparedDataFileName, "x_train", "y_train", "x_val", "y_val")
 
 train_data_length = size(x_train, 1);
@@ -62,15 +62,15 @@ val_data_length = size(x_val, 1);
 % =========== STEP 0: Inisialisasi ============
 input = size(x_train, 2);
 
-hiddenA = 8;
+hiddenA = 6;
 hiddenB = 4;
 
 output = size(y_train, 2);
 
 
-alpha = 0.4;      % NOTES: Berfungsi untuk mempercepat penurunan error, tetapi berpotensi menyebabkan osilasi. Punya Adid 0.1
+alpha = 0.2;      % NOTES: Berfungsi untuk mempercepat penurunan error, tetapi berpotensi menyebabkan osilasi. Punya Adid 0.1
 Error_min = 10^(-7);
-epoch_max = 250;  %        Berfungsi untuk memperkecil error jika masih memungkinkan.
+epoch_max = 10000;  %        Berfungsi untuk memperkecil error jika masih memungkinkan.
 % =============================================
 
 
@@ -339,27 +339,27 @@ fprintf("Training ends at epoch = %d with Error = %d\n", epoch, Errors);
 
 
 %% ///////////////// TAHAP 2 //////////////////
-% (output = y, input = x, x-1, x-2)
+% (output = x, input = y, y-1, y-2)
 % (melanjutkan bobot dari tahap 1)
 
 % dataName = "data_random";  % "data_random" / "data_sin" / "data_step"
-% preparedDataFileName = "prep_plantId_" + dataName + ".mat";
+% preparedDataFileName = "prep_invCtrl_" + dataName + ".mat";
 % load(preparedDataFileName, "x_train", "y_train", "x_val", "y_val")
-% load("plantIdentificationOutputBest.mat")
+% load("inverseControlOutputBest.mat")
 
 train_data_length = size(x_train, 1);
 val_data_length = size(x_val, 1);
 
 % ===== Mempersiapkan input untuk tahap 2 =====
 x_train2 = x_train;
-x_train2(:, 3) = zeros(1, size(x_train2, 1));  %kosongkan y(t-1)
-x_train2(:, 5) = zeros(1, size(x_train2, 1));  %kosongkan y(t-2)
+x_train2(:, 1) = zeros(1, size(x_train2, 1));  %kosongkan x(t-1)
+x_train2(:, 3) = zeros(1, size(x_train2, 1));  %kosongkan x(t-2)
 % =============================================
 
-data_y_pred = zeros(size(y_train, 1) , size(y_train, 2));      %NOTES: menyiapkan tempat untuk y hasil prediksi
+data_x_pred = zeros(size(y_train, 1) , size(y_train, 2));      %NOTES: menyiapkan tempat untuk x hasil prediksi
 
 % =========== STEP 0: Inisialisasi ============
-% alpha = 0.4;      % NOTES: alpha boleh berbeda dengan NN tahap 1, karena training yang berlangsung berbeda
+% alpha = 0.2;      % NOTES: alpha boleh berbeda dengan NN tahap 1, karena training yang berlangsung berbeda
 Error_min = Error_min/100;
 % epoch_max = 250;  %        epoch_max boleh berbeda dengan NN tahap 1, karena training yang berlangsung berbeda
 % =============================================
@@ -389,7 +389,7 @@ tangenh2 = matlabFunction(tangenh2);
 
 % Time elapsed
 tic;
-
+ 
 % STEP 1:
 for epoch = 1:epoch_max
     % Each data loop
@@ -401,10 +401,10 @@ for epoch = 1:epoch_max
     for p = 1:train_data_length
  
         if p > 1
-            %NOTES: Masukkan yl sebelumnya sebagai y(t-1) dan y(t-2)
-            x_train2(p,3) = yl;
+            %NOTES: Masukkan yl sebelumnya sebagai x(t-1) dan x(t-2)
+            x_train2(p,1) = yl;
             if p > 2
-                x_train2(p,5) = x_train2(p-1,3);
+                x_train2(p,3) = x_train2(p-1,1);
             end
         end
         
@@ -494,7 +494,7 @@ for epoch = 1:epoch_max
             uoj(1, o) = uoj(1, o) + delta_uoj(1, o);  % bias hidden update
         end
     
-        data_y_pred(p) = yl;
+        data_x_pred(p) = yl;
         
     end
 
@@ -568,7 +568,7 @@ end
 
 fprintf("Training ends at epoch = %d with Error = %d\n", epoch, Errors);
 
-save("plantIdentificationOutput.mat", "x_train2", "data_y_pred", "uoj", "uij", "vok", "vjk", "wol", "wkl")
+save("inverseControlOutput.mat", "x_train2", "data_x_pred", "uoj", "uij", "vok", "vjk", "wol", "wkl")
 % /////////////////////////////////////////////
 
 
@@ -577,8 +577,8 @@ save("plantIdentificationOutput.mat", "x_train2", "data_y_pred", "uoj", "uij", "
 figure(2);
 plot_x = 1:100;
 
-plot_y1 = data(1:100 , 6);
-plot_y2 = data_y_pred(1:100);
+plot_y1 = data(1:100 , 1);
+plot_y2 = data_x_pred(1:100);
 
 plot(plot_x, plot_y1, 'b', 'DisplayName', 'Actual Data');
 hold on;
@@ -595,7 +595,7 @@ legend;
 
 
 %% ///////////// Training Error Logging /////////////
-fname='plantIdentificationLog.xlsx';
+fname='inverseControlLog.xlsx';
 T = table(hiddenA,hiddenB,alpha,epoch,Errors);
 writetable(T,fname,'WriteMode','Append','WriteVariableNames',false,'WriteRowNames',true)
 % /////////////////////////////////////////////
